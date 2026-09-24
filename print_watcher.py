@@ -27,7 +27,6 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from urllib.parse import urlencode
 
 import requests
 
@@ -64,8 +63,16 @@ def pcloud_call(method, params=None, stream=False):
     application-level errors."""
     params = dict(params or {})
     params["auth"] = config.PCLOUD_AUTH_TOKEN
-    url = f"{config.PCLOUD_API_HOST}/{method}?{urlencode(params)}"
-    resp = requests.get(url, stream=stream, timeout=30)
+    # POST with the token in the body rather than a GET query string: the
+    # auth token must never end up in exception messages or logs. requests
+    # connection errors include the full URL (query string and all) in
+    # their message, but do not include POST body contents.
+    resp = requests.post(
+        f"{config.PCLOUD_API_HOST}/{method}",
+        data=params,
+        stream=stream,
+        timeout=30,
+    )
     resp.raise_for_status()
     if stream:
         return resp
@@ -175,7 +182,7 @@ def check_config():
     problems = []
     if config.PCLOUD_AUTH_TOKEN == "REPLACE_WITH_YOUR_PCLOUD_AUTH_TOKEN":
         problems.append("PCLOUD_AUTH_TOKEN is not set in config.py")
-    if not config.PCLOUD_FOLDER_ID and config.PCLOUD_FOLDER_ID != 0:
+    if config.PCLOUD_FOLDER_ID == "REPLACE_WITH_YOUR_PCLOUD_FOLDER_ID":
         problems.append("PCLOUD_FOLDER_ID is not set in config.py")
     if config.CUPS_PRINTER_NAME == "REPLACE_WITH_YOUR_CUPS_PRINTER_NAME":
         problems.append("CUPS_PRINTER_NAME is not set in config.py")
