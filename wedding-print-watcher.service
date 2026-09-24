@@ -8,7 +8,7 @@ Type=simple
 User=pi
 WorkingDirectory=/home/pi/wedding-photo-kiosk
 ExecStart=/usr/bin/python3 /home/pi/wedding-photo-kiosk/print_watcher.py
-Restart=on-failure
+Restart=always
 RestartSec=5
 
 [Install]
