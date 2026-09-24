@@ -1,0 +1,15 @@
+[Unit]
+Description=Wedding Photo Print Watcher
+After=network-online.target cups.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/wedding-photo-kiosk
+ExecStart=/usr/bin/python3 /home/pi/wedding-photo-kiosk/print_watcher.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
