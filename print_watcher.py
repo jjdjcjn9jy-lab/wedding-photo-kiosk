@@ -82,11 +82,33 @@ def pcloud_call(method, params=None, stream=False):
     return data
 
 
+def collect_files(metadata):
+    """Recursively collect file entries from a folder metadata tree.
+
+    pCloud's upload-link system nests each upload session into its own
+    subfolder of the watched folder, so a flat listing only ever sees the
+    session folders and never the photos inside them.
+    """
+    files = []
+    for entry in metadata.get("contents", []):
+        if entry.get("isfolder"):
+            files.extend(collect_files(entry))
+        else:
+            files.append(entry)
+    return files
+
+
 def list_new_files():
-    """Return metadata for files currently in the watched folder."""
-    data = pcloud_call("listfolder", {"folderid": config.PCLOUD_FOLDER_ID})
-    contents = data.get("metadata", {}).get("contents", [])
-    return [f for f in contents if not f.get("isfolder")]
+    """Return metadata for files currently in the watched folder tree.
+
+    Uses recursive listing so photos inside per-session upload subfolders
+    are picked up as well (see collect_files).
+    """
+    data = pcloud_call("listfolder", {
+        "folderid": config.PCLOUD_FOLDER_ID,
+        "recursive": 1,
+    })
+    return collect_files(data.get("metadata", {}))
 
 
 def download_file(fileid, name):
@@ -119,6 +141,49 @@ def delete_remote_file(fileid):
     """Remove the file from pCloud once it's safely downloaded and queued,
     so the same photo is never picked up and printed twice."""
     pcloud_call("deletefile", {"fileid": fileid})
+
+
+def cleanup_empty_session_folders():
+    """Delete per-upload-session subfolders the watched folder has emptied.
+
+    pCloud nests each upload-link session into its own subfolder; once the
+    kiosk has downloaded (and deleted) the photos inside, the leftover
+    session folders would otherwise accumulate forever. Only folders that
+    contain nothing are removed, so any folder a human placed files in
+    is left alone.
+    """
+    try:
+        data = pcloud_call("listfolder", {
+            "folderid": config.PCLOUD_FOLDER_ID,
+            "recursive": 1,
+        })
+    except Exception as e:
+        log.warning("Could not list folder for cleanup: %s", e)
+        return
+
+    def prune(metadata):
+        """Returns True if the folder is (or became) empty, so the caller
+        can delete it. Deletions of children don't mutate this snapshot,
+        so emptiness is judged on the snapshot plus what prune deleted."""
+        contents = metadata.get("contents", [])
+        if not contents:
+            return True
+        for entry in contents:
+            if entry.get("isfolder"):
+                if prune(entry):
+                    try:
+                        pcloud_call("deletefolder", {"folderid": entry["folderid"]})
+                        log.info("Removed empty session folder %s (folderid %s)",
+                                 entry.get("name"), entry["folderid"])
+                    except Exception as e:
+                        log.warning("Could not remove empty folder %s: %s",
+                                     entry.get("name"), e)
+                        return False
+            else:
+                return False
+        return True
+
+    prune(data.get("metadata", {}))
 
 
 def print_file(local_path: Path) -> bool:
@@ -176,6 +241,9 @@ def process_once():
         else:
             local_path.rename(FAILED_DIR / local_path.name)
             log.error("Moved %s to failed/ for manual review", local_path.name)
+
+    if files:
+        cleanup_empty_session_folders()
 
 
 def check_config():
