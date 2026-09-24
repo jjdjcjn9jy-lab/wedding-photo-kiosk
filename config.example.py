@@ -17,8 +17,11 @@ PCLOUD_API_HOST = "https://eapi.pcloud.com"
 PCLOUD_AUTH_TOKEN = "REPLACE_WITH_YOUR_PCLOUD_AUTH_TOKEN"
 
 # The folder ID that guests' uploads land in — must match the folder your
-# web app's upload-link code points at (see README.md step 2).
-PCLOUD_FOLDER_ID = 0  # REPLACE with your actual folder id
+# web app's upload-link code points at (see README.md step 2). Note that
+# folderid 0 would mean the ROOT of your pCloud account, so the example
+# ships with a placeholder string that check_config() rejects until you
+# replace it with your actual numeric folder id.
+PCLOUD_FOLDER_ID = "REPLACE_WITH_YOUR_PCLOUD_FOLDER_ID"
 
 # CUPS printer name as reported by `lpstat -p`, e.g. "Canon_SELPHY_CP1500"
 CUPS_PRINTER_NAME = "REPLACE_WITH_YOUR_CUPS_PRINTER_NAME"
