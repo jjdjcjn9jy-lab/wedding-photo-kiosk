@@ -91,7 +91,13 @@ def download_file(fileid, name):
         raise RuntimeError(f"No download link returned for fileid {fileid}")
 
     download_url = f"https://{hosts[0]}{path}"
-    local_path = PENDING_DIR / name
+    # The remote name is attacker-controlled (the web app's upload code is
+    # public and lets anyone drop files in the watched folder), and a name
+    # like "../../evil" or an absolute path would escape PENDING_DIR when
+    # joined onto it. Keep only the final path component, and prefix the
+    # fileid so two uploads with the same name can't clobber each other.
+    safe_name = f"{fileid}-{Path(name).name}"
+    local_path = PENDING_DIR / safe_name
 
     resp = requests.get(download_url, stream=True, timeout=60)
     resp.raise_for_status()
